@@ -20,8 +20,6 @@ def generateTileSet():
     return tileSet
 
 tileSet = generateTileSet()
-print(len(tileSet))
-print(np.array(tileSet[2519]).shape)
 
 
 

@@ -2,9 +2,13 @@ import cv2
 import glob
 import numpy as np
 import sys
+import getTextBound
 
+img = cv2.imread('./videoImage/000000.jpg')
+mask_Text = getTextBound.developTextMask(img)
+height, rmax, rmin, cmax, cmin = getTextBound.getTextSize(mask_Text)
 
-def generateTileSet():
+def generateTileSet(height, rmax, cmax, cmin):
     img = cv2.imread('./videoImage/000000.jpg')
 
     # Create an empth list to store candidates
@@ -13,31 +17,31 @@ def generateTileSet():
     # Initialize candidate
     tilCandidate = np.zeros((55, 5, 3), np.uint8)
 
-    for x in range(125, 145, 2):
-        for y in range(15, 200, 2):
-            tilCandidate = img[x:x + 55, y:y + 5]
+    for x in range(rmax, rmax + 40, 2):
+        for y in range(cmin, cmax, 2):
+            tilCandidate = img[x:x + height, y:y + 5]
             tileSet.append(tilCandidate)
 
     return tileSet
 
-def findCandidate(img, curW, tileSet):
+def findCandidate(img, curW, tileSet, height):
     # bottom
     # currentPatch = img[125:180, curW:curW + 5]
     # right
     # currentPatch = img[70:125, curW+5:curW + 10]
     # top
     # currentPatch = img[25:80, curW+5:curW+10]
-    currentPatchBottom = img[125:180, curW:curW + 5]
-    currentPatchRight = img[70:125, curW + 5:curW + 10]
+    # currentPatchBottom = img[125:180, curW:curW + 5]
+    # currentPatchRight = img[70:125, curW + 5:curW + 10]
 
+    rightmost = 180
+    currentPatch = img[rightmost - height:rightmost, curW:curW + 5]
 
     min_ssd = sys.maxsize
     index = -1
     for i in range(len(tileSet)):
 
-        ssd_bottom = np.sum(np.square(currentPatchBottom - tileSet[i]))
-        ssd_right = np.sum(np.square(currentPatchRight - tileSet[i]))
-        ssd = ssd_bottom + ssd_right
+        ssd = np.sum(np.square(currentPatch - tileSet[i]))
         if ssd < min_ssd:
             min_ssd = ssd
             index = i
@@ -47,6 +51,7 @@ def findCandidate(img, curW, tileSet):
 def tracking(frames, tileSet, mode = "ssd"):
     search_range = 10
     # [boxh, boxw, bh, bw] = [25, 50, 40, 40]
+    # initial bounding box
     [boxh, boxw, bh, bw] = [0, 276, 50, 13]
     fst_src = cv2.imread(frames[0])
     last_frame = fst_src
@@ -59,7 +64,7 @@ def tracking(frames, tileSet, mode = "ssd"):
 
 
     if mode == "ssd":
-        file_path = "./test_bottom_right.mp4"
+        file_path = "./test_bottom_right1.mp4"
         size = (fst_img.shape[1], fst_img.shape[0])
         out = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
 
@@ -87,8 +92,8 @@ def tracking(frames, tileSet, mode = "ssd"):
 
             index = findCandidate(src, boxw+bw, tileSet)
 
-            src[70:125, boxw+bw+5: 310] = last_frame[70:125, boxw+bw+5:310]
-            src[70:125, boxw+bw: boxw+bw+5] = tileSet[index]
+            src[rmin:rmin + height, boxw + bw + 5: 310] = last_frame[rmin:rmin + height, boxw + bw + 5:310]
+            src[rmin:rmin + height, boxw + bw: boxw + bw + 5] = tileSet[index]
             last_frame = src
 
             out.write(src)
@@ -96,5 +101,5 @@ def tracking(frames, tileSet, mode = "ssd"):
 
 
 frames = sorted(glob.glob('/Users/duxinzhe/PycharmProjects/magic-eraser-cv/videoImage/*.jpg'))
-tileSet = generateTileSet()
+tileSet = generateTileSet(height, rmax, cmax, cmin)
 tracking(frames, tileSet, mode = "ssd")
